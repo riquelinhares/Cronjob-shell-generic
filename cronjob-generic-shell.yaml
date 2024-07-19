@@ -1,0 +1,50 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: generic
+spec:
+  schedule: "1 * * * *"  # Run every hour
+  successfulJobsHistoryLimit: 1  
+  failedJobsHistoryLimit: 1  
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 60
+      template:
+        metadata:
+          labels:
+            app: generic
+        spec:
+          initContainers:
+          - name: init-script
+            image: riquelinhares/ubuntu-bash-curl-dig:latest
+            command: ["/bin/bash", "-c", "cp /scripts/generic.sh /tmp/generic.sh && chmod +x /tmp/generic.sh"] # Because configmaps live in memory and cant be executed directly
+            volumeMounts:
+            - name: script-volume-in-memory
+              mountPath: /scripts
+            - name: tmp-volume
+              mountPath: /tmp
+          containers:
+          - name: ubuntu
+            image: riquelinhares/ubuntu-bash-curl-dig:latest
+            command: ["/bin/bash", "-c", "/tmp/generic.sh"]
+            volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+          volumes:
+          - name: script-volume-in-memory
+            configMap:
+              name: generic
+          - name: tmp-volume
+            emptyDir: {}
+          restartPolicy: OnFailure  
+--- 
+apiVersion: v1
+data:
+  generic.sh: |-
+    #!/bin/bash
+    echo "Do your magic here"
+    
+kind: ConfigMap
+metadata:
+  name: generic
